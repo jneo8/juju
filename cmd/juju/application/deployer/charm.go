@@ -50,6 +50,7 @@ type deployCharm struct {
 	baseFlag         corebase.Base
 	storage          map[string]storage.Constraints
 	trust            bool
+	storageID        string
 
 	validateCharmBaseWithName func(base corebase.Base, name string, imageStream string) error
 }
@@ -322,6 +323,7 @@ func (c *repositoryCharm) String() string {
 // PrepareAndDeploy finishes preparing to deploy a repository charm,
 // then deploys it.
 func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
+	logger.Warningf("jneo8 repositoryCharm PrepareAndDeploy")
 	if deployAPI.BestFacadeVersion("Application") < 19 {
 		return c.compatibilityPrepareAndDeploy(ctx, deployAPI, resolver)
 	}
@@ -369,6 +371,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		Resources:        c.resources,
 		Storage:          c.storage,
 		Trust:            c.trust,
+		StorageID:        c.storageID,
 	})
 
 	for _, err := range errs {

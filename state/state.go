@@ -1140,6 +1140,7 @@ type AddApplicationArgs struct {
 	Placement         []*instance.Placement
 	Constraints       constraints.Value
 	Resources         map[string]string
+	StorageID         string
 }
 
 // AddApplication creates a new application, running the supplied charm, with the
@@ -1147,6 +1148,8 @@ type AddApplicationArgs struct {
 // they will be created automatically.
 func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
+
+	logger.Warningf("jneo8 state AddApplication args: %#v", args)
 
 	// Sanity checks.
 	if !names.IsValidApplication(args.Name) {
@@ -1312,6 +1315,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		DesiredScale: scale,
 		Placement:    placement,
 		HasResources: hasResources,
+		StorageID:    args.StorageID,
 	}
 
 	app := newApplication(st, appDoc)

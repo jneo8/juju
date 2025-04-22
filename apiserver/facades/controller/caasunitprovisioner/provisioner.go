@@ -347,6 +347,7 @@ func (f *Facade) ProvisioningInfo(args params.Entities) (params.KubernetesProvis
 }
 
 func (f *Facade) provisioningInfo(model Model, tagString string) (*params.KubernetesProvisioningInfo, error) {
+	logger.Warningf("jneo8 calling Facade provisioningInfo model: %s tagString: %s", model, tagString)
 	appTag, err := names.ParseApplicationTag(tagString)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -374,6 +375,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger.Warningf("jneo8 Facade provisioningInfo app: %#v", app)
 	modelConfig, err := model.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -437,6 +439,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		Tags:                 resourceTags,
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		ImageRepo:            imageRepo,
+		StorageID:            app.StorageID(),
 	}
 	deployInfo := ch.Meta().Deployment
 	if deployInfo != nil {

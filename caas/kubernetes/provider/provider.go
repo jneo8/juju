@@ -161,6 +161,7 @@ func newRestClient(cfg *rest.Config) (rest.Interface, error) {
 
 // Open is part of the ContainerEnvironProvider interface.
 func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, error) {
+	logger.Warningf("jneo8 opening model %q.", args.Config.Name())
 	logger.Debugf("opening model %q.", args.Config.Name())
 	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")

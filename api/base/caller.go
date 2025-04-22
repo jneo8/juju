@@ -10,10 +10,13 @@ import (
 	"net/url"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
 )
+
+var logger = loggo.GetLogger("juju.api")
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/caller_mock.go github.com/juju/juju/api/base APICaller,FacadeCaller
 

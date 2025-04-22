@@ -346,6 +346,7 @@ func (r *apiRoot) Kill() {
 // For more information about how FindMethod should work, see rpc/server.go and
 // rpc/rpcreflect/value.go
 func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
+	logger.Warningf("jneo8 apiRoot FindMethod %s %d %s", rootName, version, methodName)
 	goType, objMethod, err := r.lookupMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, err

@@ -111,6 +111,7 @@ func (d *factory) GetDeployer(cfg DeployerConfig, deployAPI CharmDeployAPI, reso
 
 		// Go for local bundle
 		var localBundleErr error
+		logger.Debugf("DeployKind: localBundleDeployer")
 		if dk, localBundleErr = d.localBundleDeployer(); localBundleErr != nil {
 			return nil, errors.Trace(localBundleErr)
 		}
@@ -118,6 +119,7 @@ func (d *factory) GetDeployer(cfg DeployerConfig, deployAPI CharmDeployAPI, reso
 		// Go for local charm (if it's not set by the localBundleDeployer above)
 		if dk == nil {
 			var localCharmErr error
+			logger.Debugf("DeployKind: localCharmDeployer")
 			if dk, localCharmErr = d.localCharmDeployer(deployAPI); localCharmErr != nil {
 				return nil, errors.Trace(localCharmErr)
 			}
@@ -126,6 +128,7 @@ func (d *factory) GetDeployer(cfg DeployerConfig, deployAPI CharmDeployAPI, reso
 		// Go for local pre-deployed charm (if it's not set by the localCharmDeployer above)
 		if dk == nil {
 			var localPreDeployedCharmErr error
+			logger.Debugf("DeployKind: localPreDeployedCharmDeployer")
 			if dk, localPreDeployedCharmErr = d.localPreDeployedCharmDeployer(deployAPI); localPreDeployedCharmErr != nil {
 				return nil, errors.Trace(localPreDeployedCharmErr)
 			}
@@ -154,12 +157,14 @@ func (d *factory) GetDeployer(cfg DeployerConfig, deployAPI CharmDeployAPI, reso
 
 		// Go for repository bundle
 		var bundleErr error
+		logger.Debugf("DeployKind: repoBundleDeployer")
 		if dk, bundleErr = d.repoBundleDeployer(userCharmURL, origin, resolver, charmHubSchemaCheck); bundleErr != nil && !errors.Is(bundleErr, errors.NotValid) {
 			// If the error is NotValid, then the URL is resolved alright, but not to a bundle, so no need to raise
 			return nil, errors.Trace(bundleErr)
 		}
 
 		// Go for repository charm (if it's not set by the repoBundleDeployer above)
+		logger.Debugf("DeployKind: repoCharmDeployer")
 		if dk == nil {
 			var charmErr error
 			dk, charmErr = d.repoCharmDeployer(userCharmURL, origin, charmHubSchemaCheck)
@@ -168,7 +173,6 @@ func (d *factory) GetDeployer(cfg DeployerConfig, deployAPI CharmDeployAPI, reso
 			}
 		}
 	}
-
 	return dk.CreateDeployer(*d)
 }
 
@@ -389,6 +393,7 @@ func (d *factory) setConfig(cfg DeployerConfig) {
 	d.bundleMachines = cfg.BundleMachines
 	d.trust = cfg.Trust
 	d.flagSet = cfg.FlagSet
+	d.storageID = cfg.StorageID
 }
 
 // DeployerDependencies are required for any deployer to be run.
@@ -437,6 +442,7 @@ type DeployerConfig struct {
 	Storage              map[string]storage.Constraints
 	Trust                bool
 	UseExisting          bool
+	StorageID            string
 }
 
 type factory struct {
@@ -473,6 +479,7 @@ type factory struct {
 	useExisting        bool
 	bundleMachines     map[string]string
 	trust              bool
+	storageID          string
 	flagSet            *gnuflag.FlagSet
 
 	// Private
@@ -503,6 +510,7 @@ func (d *factory) newDeployCharm() deployCharm {
 		baseFlag:         d.base,
 		storage:          d.storage,
 		trust:            d.trust,
+		storageID:        d.storageID,
 
 		validateCharmBaseWithName: d.validateCharmBaseWithName,
 	}

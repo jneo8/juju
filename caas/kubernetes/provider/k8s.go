@@ -900,6 +900,7 @@ func (k *kubernetesClient) EnsureService(
 	numUnits int,
 	config coreconfig.ConfigAttributes,
 ) (err error) {
+	logger.Warningf("jneo8 kubernetesClient EnsureService %s %#v %#v", appName, params, config)
 	defer func() {
 		if err != nil {
 			_ = statusCallback(appName, status.Error, err.Error(), nil)
@@ -924,6 +925,7 @@ func (k *kubernetesClient) EnsureService(
 		if config == nil {
 			return errors.Errorf("config for k8s app %q cannot be nil", appName)
 		}
+		logger.Warningf("jneo8 appName: %s deploymentName: %s, params: %#v config: %#v", appName, deploymentName, params, config)
 		return k.ensureService(appName, deploymentName, statusCallback, params, numUnits, config)
 	}
 	if len(params.RawK8sSpec) > 0 {
@@ -1164,7 +1166,17 @@ func (k *kubernetesClient) ensureService(
 			return errors.Annotate(err, "creating or updating headless service")
 		}
 		cleanups = append(cleanups, func() { _ = k.deleteService(headlessServiceName(deploymentName)) })
-		if err := k.configureStatefulSet(appName, deploymentName, workloadResourceAnnotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
+		logger.Warningf(
+			"jneo8 configureStatefulSet: %s %s workloadResourceAnnotations: %#v workloadSpec: %#v params.PodSpec.Containers: %#v numPods: %#v params.Filesystems: %#v",
+			appName,
+			deploymentName,
+			workloadResourceAnnotations.Copy(),
+			workloadSpec,
+			params.PodSpec.Containers,
+			&numPods,
+			params.Filesystems,
+		)
+		if err := k.configureStatefulSet(appName, deploymentName, workloadResourceAnnotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems, params.StorageID); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
 		cleanups = append(cleanups, func() { _ = k.deleteDeployment(appName) })
@@ -1235,7 +1247,8 @@ type annotationGetter interface {
 // This random snippet will be included to the pvc name so that if the same app
 // is deleted and redeployed again, the pvc retains a unique name.
 // Only generate it once, and record it on the workload resource annotations .
-func (k *kubernetesClient) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (string, error) {
+func (k *kubernetesClient) getStorageUniqPrefix(storageID string, getMeta func() (annotationGetter, error)) (string, error) {
+	logger.Warningf("jneo8 getStorageUniqPrefix")
 	r, err := getMeta()
 	if err == nil {
 		if uniqID := r.GetAnnotations()[utils.AnnotationKeyApplicationUUID(k.LabelVersion())]; uniqID != "" {
@@ -1243,6 +1256,9 @@ func (k *kubernetesClient) getStorageUniqPrefix(getMeta func() (annotationGetter
 		}
 	} else if !errors.IsNotFound(err) {
 		return "", errors.Trace(err)
+	}
+	if storageID != "" {
+		return storageID, nil
 	}
 	return k.randomPrefix()
 }
@@ -1504,7 +1520,7 @@ func (k *kubernetesClient) configureDaemonSet(
 		return cleanUps, errors.Trace(err)
 	}
 
-	storageUniqueID, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
+	storageUniqueID, err := k.getStorageUniqPrefix("", func() (annotationGetter, error) {
 		return k.getDaemonSet(deploymentName)
 	})
 	if err != nil {
@@ -1608,7 +1624,7 @@ func (k *kubernetesClient) configureDeployment(
 		return cleanUps, errors.Trace(err)
 	}
 
-	storageUniqueID, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
+	storageUniqueID, err := k.getStorageUniqPrefix("", func() (annotationGetter, error) {
 		return k.getDeployment(deploymentName)
 	})
 	if err != nil {

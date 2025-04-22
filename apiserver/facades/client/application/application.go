@@ -3055,6 +3055,7 @@ func (api *APIv18) DeployFromRepository(args params.DeployFromRepositoryArgs) (p
 // local resource is provided, details required for uploading the validated
 // resource will be returned.
 func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (params.DeployFromRepositoryResults, error) {
+	logger.Warningf("jneo8 APIBase DeployFromRepository")
 	if err := api.checkCanWrite(); err != nil {
 		return params.DeployFromRepositoryResults{}, errors.Trace(err)
 	}

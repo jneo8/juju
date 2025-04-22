@@ -205,6 +205,7 @@ func (a *API) WatchApplications() (params.StringsWatchResult, error) {
 // information returned by ProvisioningInfo. This is useful for ensuring the
 // latest application stated is ensured.
 func (a *API) WatchProvisioningInfo(args params.Entities) (params.NotifyWatchResults, error) {
+	logger.Warningf("jneo8 calling CAASApplicationProvisioner WatchProvisioningInfo args: %#v", args)
 	var result params.NotifyWatchResults
 	result.Results = make([]params.NotifyWatchResult, len(args.Entities))
 	for i, entity := range args.Entities {
@@ -274,6 +275,7 @@ func (a *API) ProvisioningInfo(args params.Entities) (params.CAASApplicationProv
 }
 
 func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplicationProvisioningInfo, error) {
+	logger.Warningf("jneo8 calling CAASApplicationProvisioner provisioningInfo %s", appName)
 	app, err := a.state.Application(appName.Id())
 	if err != nil {
 		return nil, errors.Trace(err)

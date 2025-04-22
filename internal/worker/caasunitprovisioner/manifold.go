@@ -66,6 +66,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	client := config.NewClient(apiCaller)
+	config.Logger.Warningf(
+		"jneo8 manifold NewWorker APICallerName: %s BrokerName: %s",
+		config.APICallerName,
+		config.BrokerName,
+	)
 	w, err := config.NewWorker(Config{
 		ApplicationGetter:  client,
 		ApplicationUpdater: client,

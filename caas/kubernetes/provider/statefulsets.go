@@ -53,7 +53,9 @@ func updateStrategyForStatefulSet(strategy specs.UpdateStrategy) (o apps.Statefu
 func (k *kubernetesClient) configureStatefulSet(
 	appName, deploymentName string, annotations k8sannotations.Annotation, workloadSpec *workloadSpec,
 	containers []specs.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
+	storageID string,
 ) error {
+	logger.Warningf("jneo8 creating/updating stateful set for %s", appName)
 	logger.Debugf("creating/updating stateful set for %s", appName)
 
 	// Add the specified file to the pod spec.
@@ -61,7 +63,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
 
-	storageUniqueID, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
+	storageUniqueID, err := k.getStorageUniqPrefix(storageID, func() (annotationGetter, error) {
 		return k.getStatefulSet(deploymentName)
 	})
 	if err != nil {

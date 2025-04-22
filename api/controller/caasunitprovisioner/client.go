@@ -5,6 +5,7 @@ package caasunitprovisioner
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
@@ -22,6 +23,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
+
+var logger = loggo.GetLogger("controller.caasunitprovisioner.client")
 
 // Client allows access to the CAAS unit provisioner API endpoint.
 type Client struct {
@@ -238,11 +241,13 @@ type ProvisioningInfo struct {
 	Tags                 map[string]string
 	ImageDetails         resources.DockerImageDetails
 	CharmModifiedVersion int
+	StorageID            string
 }
 
 // ProvisioningInfo returns the provisioning info for the specified CAAS
 // application in the current model.
 func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
+	logger.Warningf("jneo8 calling caas unitprovisioner client ProvisioningInfo")
 	appTag, err := applicationTag(appName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -260,6 +265,7 @@ func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
 		return nil, maybeNotFound(err)
 	}
 	result := results.Results[0].Result
+	logger.Warningf("jneo8 KubernetesProvisioningInfoResults[0]: %#v", result)
 	info := &ProvisioningInfo{
 		PodSpec:              result.PodSpec,
 		RawK8sSpec:           result.RawK8sSpec,
@@ -267,6 +273,7 @@ func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
 		Tags:                 result.Tags,
 		CharmModifiedVersion: result.CharmModifiedVersion,
 		ImageDetails:         params.ConvertDockerImageInfo(result.ImageRepo),
+		StorageID:            result.StorageID,
 	}
 	if result.DeploymentInfo != nil {
 		info.DeploymentInfo = DeploymentInfo{
@@ -292,6 +299,7 @@ func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
 		})
 	}
 	info.Devices = devs
+	logger.Warningf("jneo8 ProvisioningInfo: %#v", info)
 	return info, nil
 }
 

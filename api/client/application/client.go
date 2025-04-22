@@ -1101,6 +1101,8 @@ type DeployFromRepositoryArg struct {
 	Storage map[string]storage.Constraints
 	//  Trust allows charm to run hooks that require access credentials
 	Trust bool
+
+	StorageID string
 }
 
 // DeployFromRepository deploys a charm from a repository based on the
@@ -1109,6 +1111,7 @@ type DeployFromRepositoryArg struct {
 // Where possible, more than all errors regarding argument validation
 // are returned.
 func (c *Client) DeployFromRepository(arg DeployFromRepositoryArg) (DeployInfo, []PendingResourceUpload, []error) {
+	logger.Warningf("jneo8 api Client DeployFromRepository args: %#v", arg)
 	var result params.DeployFromRepositoryResults
 	args := params.DeployFromRepositoryArgs{
 		Args: []params.DeployFromRepositoryArg{paramsFromDeployFromRepositoryArg(arg)},
@@ -1188,5 +1191,6 @@ func paramsFromDeployFromRepositoryArg(arg DeployFromRepositoryArg) params.Deplo
 		Resources:        arg.Resources,
 		Storage:          arg.Storage,
 		Trust:            arg.Trust,
+		StorageID:        arg.StorageID,
 	}
 }

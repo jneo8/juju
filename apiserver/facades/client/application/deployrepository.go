@@ -86,6 +86,7 @@ func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, validator Deplo
 }
 
 func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error) {
+	logger.Warningf("jneo8 DeployFromRepositoryAPI DeployFromRepository  DeployFromRepositoryArg: %#v", arg)
 	deployRepoLogger.Tracef("deployOneFromRepository(%s)", pretty.Sprint(arg))
 	// Validate the args.
 	dt, addPendingResourceErrs := api.validator.ValidateArg(arg)
@@ -127,6 +128,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 	// Last step, add pending resources.
 	pendingIDs, addPendingResourceErrs := api.addPendingResources(dt.applicationName, dt.resolvedResources)
 
+	logger.Warningf("jneo8 DeployFromRepositoryAPI DeployFromRepository call api.state.AddApplication: %s", dt.applicationName)
 	_, addApplicationErr := api.state.AddApplication(state.AddApplicationArgs{
 		ApplicationConfig: dt.applicationConfig,
 		AttachStorage:     dt.attachStorage,
@@ -141,6 +143,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		Placement:         dt.placement,
 		Resources:         pendingIDs,
 		Storage:           stateStorageConstraints(dt.storage),
+		StorageID:         dt.storageID,
 	})
 
 	if addApplicationErr != nil {
@@ -247,6 +250,7 @@ type deployTemplate struct {
 	storage                map[string]storage.Constraints
 	pendingResourceUploads []*params.PendingResourceUpload
 	resolvedResources      []resource.Resource
+	storageID              string
 }
 
 type validatorConfig struct {
@@ -369,6 +373,7 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 	dt.origin = resolvedOrigin
 	dt.placement = arg.Placement
 	dt.storage = arg.Storage
+	dt.storageID = arg.StorageID
 	if len(arg.EndpointBindings) > 0 {
 		bindings, err := v.newStateBindings(v.state, arg.EndpointBindings)
 		if err != nil {

@@ -71,6 +71,7 @@ func (w *deploymentWorker) Wait() error {
 }
 
 func (w *deploymentWorker) loop() error {
+	w.logger.Warningf("jneo8 deploymentWorker loop")
 	appScaleWatcher, err := w.applicationGetter.WatchApplicationScale(w.application)
 	if err != nil {
 		return errors.Trace(err)
@@ -121,7 +122,9 @@ func (w *deploymentWorker) loop() error {
 		if desiredScale > 0 && !gotSpecNotify {
 			continue
 		}
+		logger.Warningf("jneo8 call provisioningInfoGetter.ProvisioningInfo")
 		info, err := w.provisioningInfoGetter.ProvisioningInfo(w.application)
+		logger.Warningf("jneo8 deployment_worker %#v", info)
 		if errors.IsNotFound(err) {
 			// No pod spec defined for a unit yet;
 			// wait for one to be set.
@@ -136,6 +139,7 @@ func (w *deploymentWorker) loop() error {
 				provisionChan = nil
 			}
 			logger.Debugf("no units for %v", w.application)
+			logger.Warningf("jneo8 deployment_worker EnsureService desiredScale=0 %s", w.application)
 			err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, &caas.ServiceParams{}, 0, nil)
 			if err != nil {
 				return errors.Trace(err)
@@ -186,6 +190,7 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+		logger.Warningf("jneo8 deployment_worker EnsureService %s %#v, %d, %#v", w.application, serviceParams, desiredScale, appConfig)
 		err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, serviceParams, desiredScale, appConfig)
 		if err != nil {
 			// Some errors we don't want to exit the worker.
@@ -196,6 +201,7 @@ func (w *deploymentWorker) loop() error {
 			return errors.Trace(err)
 		}
 		logger.Debugf("ensured deployment for %s for %v units", w.application, desiredScale)
+		logger.Warningf("jneo8 ensured deployment for %s for %v units", w.application, desiredScale)
 		if serviceParams.PodSpec == nil {
 			continue
 		}
@@ -231,6 +237,7 @@ func provisionInfoToServiceParams(info *apicaasunitprovisioner.ProvisioningInfo)
 			DeploymentType: caas.DeploymentType(info.DeploymentInfo.DeploymentType),
 			ServiceType:    caas.ServiceType(info.DeploymentInfo.ServiceType),
 		},
+		StorageID: info.StorageID,
 	}
 	if len(info.PodSpec) > 0 {
 		if serviceParams.PodSpec, err = k8sspecs.ParsePodSpec(info.PodSpec); err != nil {

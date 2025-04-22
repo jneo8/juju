@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
@@ -27,6 +28,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
+
+var logger = loggo.GetLogger("controller.caasapplicationprovisioner.client")
 
 // Client allows access to the CAAS application provisioner API endpoint.
 type Client struct {
@@ -209,7 +212,6 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		}
 		info.CharmURL = charmURL
 	}
-
 	return info, nil
 }
 

@@ -1077,6 +1077,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		return nil, errors.Trace(err)
 	}
 
+	logger.Warningf("jneo8 Start model worker UUID: %s", cfg.ModelUUID)
 	return &modelWorker{
 		Engine:    engine,
 		logger:    cfg.ModelLogger,
