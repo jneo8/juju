@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 
 	apistorage "github.com/juju/juju/api/client/storage"
@@ -16,6 +17,8 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/storage"
 )
+
+var logger = loggo.GetLogger("cmd.juju.storage")
 
 // NewImportFilesystemCommand returns a command used to import a filesystem.
 //
@@ -84,7 +87,7 @@ the volume and filesystem contained within.
 // importFilesystemCommand imports filesystems into the model.
 type importFilesystemCommand struct {
 	StorageCommandBase
-	modelcmd.IAASOnlyCommand
+	// modelcmd.IAASOnlyCommand
 	newAPIFunc NewStorageImporterFunc
 
 	storagePool       string
@@ -167,5 +170,6 @@ type apiStorageImporter struct {
 func (a apiStorageImporter) ImportStorage(
 	kind storage.StorageKind, storagePool, storageProviderId, storageName string,
 ) (names.StorageTag, error) {
+	logger.Warningf("jneo8 ImportStorage kind: %s storagePool: %s storageProviderId: %s, storageName: %s", kind, storagePool, storageProviderId, storageName)
 	return a.Import(kind, storagePool, storageProviderId, storageName)
 }

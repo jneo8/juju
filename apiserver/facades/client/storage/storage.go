@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -24,6 +25,8 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
+
+var logger = loggo.GetLogger("apiserver.facades.client.storage")
 
 type storageMetadataFunc func() (poolmanager.PoolManager, storage.ProviderRegistry, error)
 
@@ -726,6 +729,7 @@ func (a *StorageAPI) Import(args params.BulkImportStorageParams) (params.ImportS
 }
 
 func (a *StorageAPI) importStorage(arg params.ImportStorageParams) (*params.ImportStorageDetails, error) {
+	logger.Warningf("jneo8 StorageAPI importStorage arg: %#v", arg)
 	if arg.Kind != params.StorageKindFilesystem {
 		// TODO(axw) implement support for volumes.
 		return nil, errors.NotSupportedf("storage kind %q", arg.Kind.String())
@@ -740,6 +744,7 @@ func (a *StorageAPI) importStorage(arg params.ImportStorageParams) (*params.Impo
 	}
 
 	cfg, err := pm.Get(arg.Pool)
+	logger.Warningf("jneo8 StorageAPI importStorage cfg: %#v", cfg)
 	if errors.IsNotFound(err) {
 		cfg, err = storage.NewConfig(
 			arg.Pool,
@@ -764,6 +769,7 @@ func (a *StorageAPI) importFilesystem(
 	provider storage.Provider,
 	cfg *storage.Config,
 ) (*params.ImportStorageDetails, error) {
+	logger.Warningf("jneo8 StorageAPI importFilesystem arg: %#v provider: %#v cfg: %#v", arg, provider, cfg)
 	resourceTags := map[string]string{
 		tags.JujuModel:      a.backend.ModelTag().Id(),
 		tags.JujuController: a.backend.ControllerTag().Id(),
@@ -775,6 +781,7 @@ func (a *StorageAPI) importFilesystem(
 	// otherwise import a volume which will back a filesystem.
 	if provider.Supports(storage.StorageKindFilesystem) {
 		filesystemSource, err := provider.FilesystemSource(cfg)
+		logger.Warningf("jneo8 StorageAPI importFilesystem filesystemSource: %#v", filesystemSource)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

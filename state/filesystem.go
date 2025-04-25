@@ -920,6 +920,7 @@ func (sb *storageBackend) AddExistingFilesystem(
 	storageName string,
 ) (_ names.StorageTag, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add existing filesystem")
+	logger.Warningf("jneo8 AddExistingFilesystem info: %#v backingVolume: %#v storageName: %s", info, backingVolume, storageName)
 	if err := validateAddExistingFilesystem(sb, info, backingVolume, storageName); err != nil {
 		return names.StorageTag{}, errors.Trace(err)
 	}

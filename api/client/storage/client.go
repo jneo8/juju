@@ -7,12 +7,15 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
+
+var logger = loggo.GetLogger("api.client.storage")
 
 // Client allows access to the storage API end point.
 type Client struct {
@@ -300,6 +303,7 @@ func (c *Client) Import(
 			ProviderId:  storageProviderId,
 		}},
 	}
+	logger.Warningf("jneo8 call facade import args: %#v", args)
 	if err := c.facade.FacadeCall("Import", args, &results); err != nil {
 		return names.StorageTag{}, errors.Trace(err)
 	}

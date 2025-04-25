@@ -6,6 +6,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/juju/errors"
@@ -205,6 +206,30 @@ func (v *volumeSource) AttachVolumes(ctx jujucontext.ProviderCallContext, attach
 func (v *volumeSource) DetachVolumes(ctx jujucontext.ProviderCallContext, attachParams []jujustorage.VolumeAttachmentParams) ([]error, error) {
 	// noop
 	return make([]error, len(attachParams)), nil
+}
+
+func (v *volumeSource) ImportVolume(ctx jujucontext.ProviderCallContext, volumeId string, resourceTags map[string]string) (jujustorage.VolumeInfo, error) {
+	volumeIds, err := v.ListVolumes(ctx)
+	if err != nil {
+		return jujustorage.VolumeInfo{}, err
+	}
+	logger.Warningf("jneo8 volumeSource ImportVolume volumeIds %#v", volumeIds)
+	if !slices.Contains(volumeIds, volumeId) {
+		return jujustorage.VolumeInfo{}, errors.NotFoundf("%s", volumeId)
+	}
+	volDescResults, err := v.DescribeVolumes(ctx, []string{volumeId})
+	if err != nil {
+		return jujustorage.VolumeInfo{}, err
+	}
+	volDescResult := volDescResults[0]
+	if volDescResult.Error != nil {
+		return jujustorage.VolumeInfo{}, volDescResult.Error
+	}
+
+	// TODO(jneo8)
+	// - Verify the pvc naming rule
+	// - Filter PVC in used
+	return *volDescResult.VolumeInfo, nil
 }
 
 func foreachVolume(volumeIds []string, f func(string) error) []error {
