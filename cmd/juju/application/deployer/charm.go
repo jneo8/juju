@@ -351,6 +351,28 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	charmName := c.userRequestedURL.Name
+	logger.Warningf(
+		"jneo8 repositoryCharm PrepareAndDeploy DeployFromRepositoryArg: %#v",
+		application.DeployFromRepositoryArg{
+			CharmName:        charmName,
+			ApplicationName:  c.applicationName,
+			AttachStorage:    c.attachStorage,
+			Base:             base,
+			Channel:          channel,
+			ConfigYAML:       configYAML,
+			Cons:             c.constraints,
+			Devices:          c.devices,
+			DryRun:           c.dryRun,
+			EndpointBindings: c.bindings,
+			Force:            c.force,
+			NumUnits:         &c.numUnits,
+			Placement:        c.placement,
+			Revision:         c.id.Origin.Revision,
+			Resources:        c.resources,
+			Storage:          c.storage,
+			Trust:            c.trust,
+		},
+	)
 	info, localPendingResources, errs := deployAPI.DeployFromRepository(application.DeployFromRepositoryArg{
 		CharmName:        charmName,
 		ApplicationName:  c.applicationName,
@@ -370,6 +392,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		Storage:          c.storage,
 		Trust:            c.trust,
 	})
+	logger.Warningf("jneo8 repositoryCharm PrepareAndDeploy info: %#v", info)
 
 	for _, err := range errs {
 		ctx.Errorf(err.Error())

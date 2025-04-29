@@ -26,7 +26,10 @@ import (
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
+	"github.com/juju/loggo"
 )
+
+var logger = loggo.GetLogger("api.controller.caasapplicationprovisioner")
 
 // Client allows access to the CAAS application provisioner API endpoint.
 type Client struct {
@@ -153,6 +156,7 @@ type ProvisioningInfo struct {
 
 // ProvisioningInfo returns the info needed to provision an operator for an application.
 func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, error) {
+	logger.Warningf("jneo8 Client ProvisioningInfo applicationName: %s", applicationName)
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: names.NewApplicationTag(applicationName).String()},
@@ -169,6 +173,7 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 	if err := r.Error; err != nil {
 		return ProvisioningInfo{}, errors.Trace(params.TranslateWellKnownError(err))
 	}
+	logger.Warningf("jneo8 Client ProvisioningInfo result index0: %#v", r)
 
 	base, err := corebase.ParseBase(r.Base.Name, r.Base.Channel)
 	if err != nil {
@@ -223,12 +228,13 @@ func filesystemFromParams(in params.KubernetesFilesystemParams) (*storage.Kubern
 		}
 	}
 	return &storage.KubernetesFilesystemParams{
-		StorageName:  in.StorageName,
-		Provider:     storage.ProviderType(in.Provider),
-		Size:         in.Size,
-		Attributes:   in.Attributes,
-		ResourceTags: in.Tags,
-		Attachment:   attachment,
+		StorageName:   in.StorageName,
+		Provider:      storage.ProviderType(in.Provider),
+		Size:          in.Size,
+		Attributes:    in.Attributes,
+		ResourceTags:  in.Tags,
+		Attachment:    attachment,
+		FileSystemIds: in.FileSystemIds,
 	}, nil
 }
 

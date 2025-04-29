@@ -55,6 +55,10 @@ func (k *kubernetesClient) configureStatefulSet(
 	containers []specs.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	logger.Debugf("creating/updating stateful set for %s", appName)
+	logger.Warningf(
+		"jneo8 configureStatefulSet appName: %s deploymentName: %s annotations: %#v workloadSpec: %#v containers: %#v replicas: %d, filesystems: %#v",
+		appName, deploymentName, annotations, workloadSpec, containers, replicas, filesystems,
+	)
 
 	// Add the specified file to the pod spec.
 	cfgName := func(fileSetName string) string {

@@ -1147,6 +1147,7 @@ type AddApplicationArgs struct {
 // they will be created automatically.
 func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
+	logger.Warningf("jneo8 State AddApplication args: %#v", args)
 
 	// Sanity checks.
 	if !names.IsValidApplication(args.Name) {
@@ -1424,6 +1425,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 				storageCons:   args.Storage,
 				attachStorage: args.AttachStorage,
 			})
+			logger.Warningf("jneo8 State collect unit-adding operations unitName: %s", unitName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1436,6 +1438,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 				ops = append(ops, assignUnitOps(unitName, placement)...)
 			}
 		}
+		logger.Warningf("jneo8 State buildTxn ops: %#v", ops)
 		return ops, nil
 	}
 	// At the last moment before inserting the application, prime status history.

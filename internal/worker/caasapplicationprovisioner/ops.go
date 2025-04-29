@@ -130,6 +130,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 	logger.Debugf("ensuring application %q exists", appName)
 
 	provisionInfo, err := facade.ProvisioningInfo(appName)
+	logger.Warningf("jneo8 appAlive provisionInfo: %#v", provisionInfo)
 	if err != nil {
 		return errors.Annotate(err, "retrieving provisioning info")
 	}
@@ -227,6 +228,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 	reason := "unchanged"
 	// TODO(sidecar): implement Equals method for caas.ApplicationConfig
 	if !reflect.DeepEqual(config, *lastApplied) {
+		logger.Warningf("jneo8 AppAlive config %#v", config)
 		if err = app.Ensure(config); err != nil {
 			_ = setApplicationStatus(appName, status.Error, err.Error(), nil, facade, logger)
 			return errors.Annotatef(err, "ensuring application %q", appName)

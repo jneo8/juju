@@ -162,6 +162,7 @@ func newApplication(
 // Ensure creates or updates an application pod with the given application
 // name, agent path, and application config.
 func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
+	logger.Warningf("jneo8 app Ensure config: %#v", config)
 	// TODO: add support `numUnits`, `Constraints` and `Devices`.
 	// TODO: storage handling for deployment/daemonset enhancement.
 	defer func() {
@@ -264,7 +265,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		} else if getErr != nil {
 			return errors.Trace(getErr)
 		}
-		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
+		storageUniqueID, err := a.getStorageUniqPrefix(config.Filesystems, func() (annotationGetter, error) {
 			return ss, getErr
 		})
 		if err != nil {
@@ -326,7 +327,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		} else if getErr != nil {
 			return errors.Trace(getErr)
 		}
-		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
+		storageUniqueID, err := a.getStorageUniqPrefix(config.Filesystems, func() (annotationGetter, error) {
 			return d, getErr
 		})
 		if err != nil {
@@ -367,7 +368,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 
 		applier.Apply(&deployment)
 	case caas.DeploymentDaemon:
-		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
+		storageUniqueID, err := a.getStorageUniqPrefix(config.Filesystems, func() (annotationGetter, error) {
 			return a.getDaemonSet()
 		})
 		if err != nil {
@@ -1911,7 +1912,7 @@ type annotationGetter interface {
 	GetAnnotations() map[string]string
 }
 
-func (a *app) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (string, error) {
+func (a *app) getStorageUniqPrefix(filesystems []jujustorage.KubernetesFilesystemParams, getMeta func() (annotationGetter, error)) (string, error) {
 	if r, err := getMeta(); err == nil {
 		// TODO: remove this function with existing one once we consolidated the annotation keys.
 		if uniqID := r.GetAnnotations()[utils.AnnotationKeyApplicationUUID(a.labelVersion)]; len(uniqID) > 0 {
@@ -1919,6 +1920,11 @@ func (a *app) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (st
 		}
 	} else if !errors.IsNotFound(err) {
 		return "", errors.Trace(err)
+	}
+	for _, fsParams := range filesystems {
+		if prefix, ok := fsParams.Attributes["pvc-prefix"]; ok {
+			return prefix.(string), nil
+		}
 	}
 	return a.randomPrefix()
 }
@@ -1989,6 +1995,12 @@ func (a *app) configureStorage(
 	handlePVC handlePVCFunc,
 	handleStorageClass handleStorageClassFunc,
 ) error {
+	logger.Warningf(
+		"jneo8 configureStorage storageUniqueID: %s filesystems: %#v storageClasses: %#v",
+		storageUniqueID,
+		filesystems,
+		storageClasses,
+	)
 	storageClassMap := make(map[string]resources.StorageClass)
 	for _, v := range storageClasses {
 		storageClassMap[v.Name] = v

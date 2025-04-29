@@ -270,10 +270,12 @@ func (a *API) ProvisioningInfo(args params.Entities) (params.CAASApplicationProv
 		}
 		result.Results[i] = *info
 	}
+	logger.Warningf("jneo8 API ProvisioningInfo result: %#v", result)
 	return result, nil
 }
 
 func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplicationProvisioningInfo, error) {
+	logger.Warningf("jneo8 API provisioningInfo appName: %#v", appName)
 	app, err := a.state.Application(appName.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -304,6 +306,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 
 	filesystemParams, err := a.applicationFilesystemParams(app, cfg, modelConfig)
 	if err != nil {
+		logger.Errorf("jneo8 applicationFilesystemParams %w", err)
 		return nil, errors.Trace(err)
 	}
 
@@ -564,8 +567,10 @@ func (a *API) applicationFilesystemParams(
 			controllerConfig.ControllerUUID(),
 			modelConfig,
 			a.storagePoolManager, a.registry,
+			a.storage,
 		)
 		if err != nil {
+			logger.Errorf("jneo8 filesystemParams: %w", err)
 			return nil, errors.Annotatef(err, "getting filesystem %q parameters", name)
 		}
 		for i := 0; i < int(cons.Count); i++ {
@@ -585,6 +590,8 @@ func (a *API) applicationFilesystemParams(
 			allFilesystemParams = append(allFilesystemParams, *fsParams)
 		}
 	}
+
+	logger.Warningf("jneo8 API applicationFilesystemParams allFilesystemParams: %#v", allFilesystemParams)
 	return allFilesystemParams, nil
 }
 
@@ -596,6 +603,7 @@ func filesystemParams(
 	modelConfig *config.Config,
 	poolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
+	storageBackend StorageBackend,
 ) (*params.KubernetesFilesystemParams, error) {
 
 	filesystemTags, err := storagecommon.StorageTags(nil, modelConfig.UUID(), controllerUUID, modelConfig)
@@ -613,9 +621,21 @@ func filesystemParams(
 		return nil, errors.Maskf(err, "getting filesystem storage parameters")
 	}
 
+	// jneo8 add storage
+	fsIds := []string{}
+	filesystems, err := storageBackend.AllFilesystems()
+	if err != nil {
+		return nil, fmt.Errorf("can't get the filesystems %w", err)
+	}
+	for _, fs := range filesystems {
+		fsTag := fs.FilesystemTag()
+		fsIds = append(fsIds, fsTag.Id())
+	}
+
 	fsParams.Size = cons.Size
 	fsParams.StorageName = storageName
 	fsParams.Tags = filesystemTags
+	fsParams.FileSystemIds = fsIds
 	return fsParams, nil
 }
 

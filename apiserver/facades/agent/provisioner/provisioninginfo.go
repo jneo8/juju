@@ -65,6 +65,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
+	logger.Warningf("jneo8 ProvisionerAPI ProvisioningInfo result: %#v", result)
 	return result, nil
 }
 
