@@ -84,7 +84,8 @@ the volume and filesystem contained within.
 // importFilesystemCommand imports filesystems into the model.
 type importFilesystemCommand struct {
 	StorageCommandBase
-	modelcmd.IAASOnlyCommand
+	// Note(jneo8): Temporary disable IAAS only
+	// modelcmd.IAASOnlyCommand
 	newAPIFunc NewStorageImporterFunc
 
 	storagePool       string

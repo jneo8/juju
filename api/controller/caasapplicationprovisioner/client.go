@@ -223,12 +223,13 @@ func filesystemFromParams(in params.KubernetesFilesystemParams) (*storage.Kubern
 		}
 	}
 	return &storage.KubernetesFilesystemParams{
-		StorageName:  in.StorageName,
-		Provider:     storage.ProviderType(in.Provider),
-		Size:         in.Size,
-		Attributes:   in.Attributes,
-		ResourceTags: in.Tags,
-		Attachment:   attachment,
+		StorageName:   in.StorageName,
+		Provider:      storage.ProviderType(in.Provider),
+		Size:          in.Size,
+		Attributes:    in.Attributes,
+		ResourceTags:  in.Tags,
+		Attachment:    attachment,
+		FileSystemIds: in.FileSystemIds,
 	}, nil
 }
 

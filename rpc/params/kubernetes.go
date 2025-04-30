@@ -42,12 +42,13 @@ type KubernetesProvisioningInfoResults struct {
 
 // KubernetesFilesystemParams holds the parameters for creating a storage filesystem.
 type KubernetesFilesystemParams struct {
-	StorageName string                                `json:"storagename"`
-	Size        uint64                                `json:"size"`
-	Provider    string                                `json:"provider"`
-	Attributes  map[string]interface{}                `json:"attributes,omitempty"`
-	Tags        map[string]string                     `json:"tags,omitempty"`
-	Attachment  *KubernetesFilesystemAttachmentParams `json:"attachment,omitempty"`
+	StorageName   string                                `json:"storagename"`
+	Size          uint64                                `json:"size"`
+	Provider      string                                `json:"provider"`
+	Attributes    map[string]interface{}                `json:"attributes,omitempty"`
+	Tags          map[string]string                     `json:"tags,omitempty"`
+	Attachment    *KubernetesFilesystemAttachmentParams `json:"attachment,omitempty"`
+	FileSystemIds []string                              `json:"filesystem-ids,omitempty"`
 }
 
 // KubernetesFilesystemAttachmentParams holds the parameters for

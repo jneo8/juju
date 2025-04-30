@@ -564,6 +564,7 @@ func (a *API) applicationFilesystemParams(
 			controllerConfig.ControllerUUID(),
 			modelConfig,
 			a.storagePoolManager, a.registry,
+			a.storage,
 		)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting filesystem %q parameters", name)
@@ -585,6 +586,7 @@ func (a *API) applicationFilesystemParams(
 			allFilesystemParams = append(allFilesystemParams, *fsParams)
 		}
 	}
+
 	return allFilesystemParams, nil
 }
 
@@ -596,6 +598,7 @@ func filesystemParams(
 	modelConfig *config.Config,
 	poolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
+	storageBackend StorageBackend,
 ) (*params.KubernetesFilesystemParams, error) {
 
 	filesystemTags, err := storagecommon.StorageTags(nil, modelConfig.UUID(), controllerUUID, modelConfig)
@@ -613,9 +616,23 @@ func filesystemParams(
 		return nil, errors.Maskf(err, "getting filesystem storage parameters")
 	}
 
+	fsIds := []string{}
+	filesystems, err := storageBackend.AllFilesystems()
+	if err != nil {
+		return nil, fmt.Errorf("can't get the filesystems %w", err)
+	}
+	for _, fs := range filesystems {
+		fsInfo, err := fs.Info()
+		if err != nil {
+			return nil, fmt.Errorf("can't get storage for filesystem %w", err)
+		}
+		fsIds = append(fsIds, fsInfo.FilesystemId)
+	}
+
 	fsParams.Size = cons.Size
 	fsParams.StorageName = storageName
 	fsParams.Tags = filesystemTags
+	fsParams.FileSystemIds = fsIds
 	return fsParams, nil
 }
 

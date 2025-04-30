@@ -511,6 +511,12 @@ func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepo
 	if corecharm.IsKubernetes(dt.charm) && charm.MetaFormat(dt.charm) == charm.FormatV1 {
 		deployRepoLogger.Debugf("DEPRECATED: %q is a podspec charm, which will be removed in a future release", arg.CharmName)
 	}
+	attachStorage, attachStorageErrs := validateAndParseAttachStorage(arg.AttachStorage, dt.numUnits)
+	if len(attachStorageErrs) > 0 {
+		errs = append(errs, attachStorageErrs...)
+	}
+	dt.attachStorage = attachStorage
+
 	// TODO
 	// Convert dt.applicationConfig from Config to a map[string]string.
 	// Config across the wire as a map[string]string no longer exists for
