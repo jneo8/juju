@@ -240,7 +240,9 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 	if withVolume {
 		// Volume must be provisioned before the filesystem.
 		volume := s.filesystemVolume(c, filesystem.FilesystemTag())
-		err := s.storageBackend.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
+		err := s.storageBackend.SetVolumeInfo(
+			volume.VolumeTag(),
+			state.VolumeInfo{VolumeId: "vol-123"})
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Volume must be attached before the filesystem.
@@ -742,6 +744,70 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("mariadb/0:mariadb/0/0") // removed
 	wc.AssertNoChange()
+}
+
+func (s *FilesystemCAASModelSuite) TestSetFilesystemInfoAttachStorageUpdateFilesystemId(c *gc.C) {
+	fsInfo := state.FilesystemInfo{
+		Size: 100,
+		Pool: "kubernetes",
+	}
+	volumeInfo := state.VolumeInfo{
+		VolumeId:   "pvc-far-boo",
+		Size:       100,
+		Pool:       "kubernetes",
+		Persistent: true,
+	}
+	storageTag, err := s.storageBackend.AddExistingFilesystem(fsInfo, &volumeInfo, "data")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageTag.Id(), gc.Equals, "data/0")
+
+	ch := s.AddTestingCharm(c, "storage-filesystem")
+	storage := map[string]state.StorageConstraints{
+		"data":  {Count: 1, Size: 1024, Pool: "kubernetes"},
+		"cache": {Count: 1, Size: 1024, Pool: "rootfs"},
+	}
+	_, err = s.st.AddApplication(state.AddApplicationArgs{
+		Name: "storage-filesystem", Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
+		Storage:       storage,
+		AttachStorage: []names.StorageTag{storageTag},
+		NumUnits:      1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Volume must be provisioned before the filesystem.
+	fs, _ := s.storageBackend.Filesystem(names.NewFilesystemTag("0"))
+	volume := s.filesystemVolume(c, fs.FilesystemTag())
+	err = s.storageBackend.SetVolumeInfo(
+		volume.VolumeTag(), state.VolumeInfo{VolumeId: "pvc-far-boo", Pool: "kubernetes"},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.storageBackend.SetVolumeAttachmentInfo(
+		names.NewUnitTag("storage-filesystem/0"),
+		volume.VolumeTag(),
+		state.VolumeAttachmentInfo{DeviceName: "sdc"},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.storageBackend.SetFilesystemInfo(
+		names.NewFilesystemTag("0"),
+		state.FilesystemInfo{
+			Size:         100,
+			Pool:         "kubernetes",
+			FilesystemId: "pvc-uid-far-boo",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	fs, err = s.storageBackend.Filesystem(names.NewFilesystemTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	info, err := fs.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, gc.Equals, state.FilesystemInfo{Size: 100, Pool: "kubernetes", FilesystemId: "pvc-uid-far-boo"})
 }
 
 func (s *FilesystemStateSuite) TestParseFilesystemAttachmentId(c *gc.C) {

@@ -232,6 +232,7 @@ type mockApplication struct {
 	watcher              *statetesting.MockNotifyWatcher
 	charmPending         bool
 	provisioningState    *state.ApplicationProvisioningState
+	unitAttachmentInfos  []state.UnitAttachmentInfo
 }
 
 func (a *mockApplication) CharmPendingToBeDownloaded() bool {
@@ -377,6 +378,11 @@ func (a *mockApplication) ProvisioningState() *state.ApplicationProvisioningStat
 	return a.provisioningState
 }
 
+func (a *mockApplication) GetUnitAttachmentInfos() ([]state.UnitAttachmentInfo, error) {
+	a.MethodCall(a, "GetUnitAttachmentInfos")
+	return a.unitAttachmentInfos, a.NextErr()
+}
+
 type mockCharm struct {
 	meta     *charm.Meta
 	manifest *charm.Manifest
@@ -498,6 +504,7 @@ type mockStorage struct {
 	storageFilesystems map[names.StorageTag]names.FilesystemTag
 	storageVolumes     map[names.StorageTag]names.VolumeTag
 	storageAttachments map[names.UnitTag]names.StorageTag
+	filesystems        map[names.FilesystemTag]*mockFilesystem
 	backingVolume      names.VolumeTag
 }
 
@@ -513,7 +520,13 @@ func (m *mockStorage) AllFilesystems() ([]state.Filesystem, error) {
 	m.MethodCall(m, "AllFilesystems")
 	var result []state.Filesystem
 	for _, fsTag := range m.storageFilesystems {
-		result = append(result, &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume})
+		result = append(
+			result,
+			&mockFilesystem{
+				Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume,
+				info: state.FilesystemInfo{}, infoErr: errors.NotProvisionedf("filesystem"),
+			},
+		)
 	}
 	return result, nil
 }
@@ -535,11 +548,13 @@ func (m *mockStorage) DestroyVolume(tag names.VolumeTag) (err error) {
 
 func (m *mockStorage) Filesystem(fsTag names.FilesystemTag) (state.Filesystem, error) {
 	m.MethodCall(m, "Filesystem", fsTag)
-	return &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume}, nil
+	fs := m.filesystems[fsTag]
+	fs.Stub = &m.Stub
+	return fs, nil
 }
 
 func (m *mockStorage) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
-	return &mockFilesystem{Stub: &m.Stub, tag: m.storageFilesystems[tag], volTag: m.backingVolume}, nil
+	return &mockFilesystem{Stub: &m.Stub, tag: m.storageFilesystems[tag], volTag: m.backingVolume, info: state.FilesystemInfo{}, infoErr: errors.NotProvisionedf("filesystem")}, nil
 }
 
 func (m *mockStorage) UnitStorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error) {
@@ -614,8 +629,10 @@ func (a *mockStorageAttachment) StorageInstance() names.StorageTag {
 type mockFilesystem struct {
 	*testing.Stub
 	state.Filesystem
-	tag    names.FilesystemTag
-	volTag names.VolumeTag
+	tag     names.FilesystemTag
+	volTag  names.VolumeTag
+	info    state.FilesystemInfo
+	infoErr error
 }
 
 func (f *mockFilesystem) Tag() names.Tag {
@@ -639,7 +656,7 @@ func (f *mockFilesystem) SetStatus(statusInfo status.StatusInfo) error {
 }
 
 func (f *mockFilesystem) Info() (state.FilesystemInfo, error) {
-	return state.FilesystemInfo{}, errors.NotProvisionedf("filesystem")
+	return f.info, f.infoErr
 }
 
 type mockVolume struct {

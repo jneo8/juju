@@ -1234,14 +1234,17 @@ func (sb *storageBackend) SetFilesystemInfo(tag names.FilesystemTag, info Filesy
 	if info.FilesystemId == "" {
 		return errors.New("filesystem ID not set")
 	}
+
 	fs, err := sb.Filesystem(tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	// If the filesystem is volume-backed, the volume must be provisioned
 	// and attached first.
 	if volumeTag, err := fs.Volume(); err == nil {
 		volumeAttachments, err := sb.VolumeAttachments(volumeTag)
+
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1282,7 +1285,13 @@ func (sb *storageBackend) SetFilesystemInfo(tag names.FilesystemTag, info Filesy
 			if err != nil {
 				return nil, err
 			}
-			if err := validateFilesystemInfoChange(info, oldInfo); err != nil {
+			if err := validateFilesystemInfoChange(
+				info, oldInfo,
+				// Allow filesystem ID changes for CAAS models during attaching storage.
+				// In CAAS models, the initial filesystem ID is set to the filesystem tag value
+				// and must be updated to the PVC UID when the filesystem is attached to a unit.
+				oldInfo.FilesystemId == tag.String() && sb.modelType == ModelTypeCAAS,
+			); err != nil {
 				return nil, err
 			}
 		}
@@ -1292,14 +1301,15 @@ func (sb *storageBackend) SetFilesystemInfo(tag names.FilesystemTag, info Filesy
 	return sb.mb.db().Run(buildTxn)
 }
 
-func validateFilesystemInfoChange(newInfo, oldInfo FilesystemInfo) error {
+func validateFilesystemInfoChange(newInfo, oldInfo FilesystemInfo, changeFilesystemId bool) error {
 	if newInfo.Pool != oldInfo.Pool {
 		return errors.Errorf(
 			"cannot change pool from %q to %q",
 			oldInfo.Pool, newInfo.Pool,
 		)
 	}
-	if newInfo.FilesystemId != oldInfo.FilesystemId {
+
+	if newInfo.FilesystemId != oldInfo.FilesystemId && !changeFilesystemId {
 		return errors.Errorf(
 			"cannot change filesystem ID from %q to %q",
 			oldInfo.FilesystemId, newInfo.FilesystemId,

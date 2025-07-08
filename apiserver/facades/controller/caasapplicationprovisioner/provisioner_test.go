@@ -10,6 +10,7 @@ import (
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -63,6 +64,7 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 		storageFilesystems: make(map[names.StorageTag]names.FilesystemTag),
 		storageVolumes:     make(map[names.StorageTag]names.VolumeTag),
 		storageAttachments: make(map[names.UnitTag]names.StorageTag),
+		filesystems:        make(map[names.FilesystemTag]*mockFilesystem),
 		backingVolume:      names.NewVolumeTag("66"),
 	}
 	s.storagePoolManager = &mockStoragePoolManager{}
@@ -116,6 +118,53 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 			CharmModifiedVersion: 10,
 			Scale:                3,
 			Trust:                true,
+		}},
+	})
+}
+
+func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoAttachStorage(c *gc.C) {
+	s.st.app = &mockApplication{
+		life: state.Alive,
+		charm: &mockCharm{
+			meta: &charm.Meta{},
+			url:  "ch:gitlab",
+		},
+		charmModifiedVersion: 10,
+		scale:                1,
+		config: config.ConfigAttributes{
+			"trust": true,
+		},
+		unitAttachmentInfos: []state.UnitAttachmentInfo{
+			{
+				Unit:      "gitlab/0",
+				VolumeId:  "pvc-foo-bar",
+				StorageId: "gitlab-storage/0",
+			},
+		},
+	}
+	result, err := s.api.ProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.Results[0].CACert`, jc.Ignore)
+	c.Assert(result, mc, params.CAASApplicationProvisioningInfoResults{
+		Results: []params.CAASApplicationProvisioningInfo{{
+			ImageRepo:    params.DockerImageInfo{RegistryPath: "docker.io/jujusolutions/jujud-operator:2.6-beta3.666"},
+			Version:      version.MustParse("2.6-beta3.666"),
+			APIAddresses: []string{"10.0.0.1:1"},
+			Tags: map[string]string{
+				"juju-model-uuid":      coretesting.ModelTag.Id(),
+				"juju-controller-uuid": coretesting.ControllerTag.Id(),
+			},
+			CharmURL:             "ch:gitlab",
+			CharmModifiedVersion: 10,
+			Scale:                1,
+			Trust:                true,
+			FilesystemUnitAttachments: map[string][]params.KubernetesFilesystemUnitAttachmentParams{
+				"gitlab-storage": {
+					{UnitTag: "unit-gitlab-0", VolumeId: "pvc-foo-bar"},
+				},
+			},
 		}},
 	})
 }
@@ -295,6 +344,148 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 	})
 }
 
+func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithAttachStorage(c *gc.C) {
+	s.st.app = &mockApplication{
+		tag:  names.NewApplicationTag("gitlab"),
+		life: state.Alive,
+		charm: &mockCharm{
+			meta: &charm.Meta{
+				Deployment: &charm.Deployment{
+					DeploymentType: charm.DeploymentStateful,
+				},
+			},
+			manifest: &charm.Manifest{
+				// charm.FormatV2.
+				Bases: []charm.Base{
+					{
+						Name: "ubuntu",
+						Channel: charm.Channel{
+							Risk:  "stable",
+							Track: "20.04",
+						},
+					},
+				},
+			},
+			url: "ch:gitlab",
+		},
+		units: []*mockUnit{
+			{
+				tag: names.NewUnitTag("gitlab/0"),
+				containerInfo: &mockCloudContainer{
+					unit:       "gitlab/0",
+					providerId: "gitlab-0",
+				},
+			},
+		},
+	}
+	s.storage.storageFilesystems[names.NewStorageTag("data/0")] = names.NewFilesystemTag("gitlab/0/0")
+	s.storage.storageVolumes[names.NewStorageTag("data/0")] = names.NewVolumeTag("0")
+	s.storage.storageAttachments[names.NewUnitTag("gitlab/0")] = names.NewStorageTag("data/0")
+	s.storage.filesystems[names.NewFilesystemTag("gitlab/0/0")] = &mockFilesystem{
+		tag: names.NewFilesystemTag("gitlab/0/0"), volTag: s.storage.backingVolume,
+		infoErr: nil, info: state.FilesystemInfo{Size: 100, Pool: "kubernetes", FilesystemId: "filesystem-gitlab-0-0"},
+	}
+
+	units := []params.ApplicationUnitParams{
+		{ProviderId: "gitlab-0", Address: "address", Ports: []string{"port"},
+			Status: "running", Info: "message", Stateful: true,
+			FilesystemInfo: []params.KubernetesFilesystemInfo{
+				{
+					StorageName:  "data",
+					FilesystemId: "fs-id",
+					Size:         100,
+					MountPoint:   "/path/to/here",
+					ReadOnly:     false,
+					Pool:         "",
+					Status:       "attached", Info: "",
+					Volume: params.KubernetesVolumeInfo{
+						VolumeId: "pvc-xxx", Size: 100, Persistent: true,
+						Status: "attached", Info: "",
+					},
+				},
+			},
+		},
+	}
+
+	args := params.UpdateApplicationUnitArgs{
+		Args: []params.UpdateApplicationUnits{
+			{
+				ApplicationTag: "application-gitlab",
+				Units:          units,
+				Status:         params.EntityStatus{Status: status.Active, Info: "working"},
+			},
+		},
+	}
+
+	results, err := s.api.UpdateApplicationsUnits(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0], gc.DeepEquals, params.UpdateApplicationUnitResult{
+		Info: &params.UpdateApplicationUnitsInfo{
+			Units: []params.ApplicationUnitInfo{
+				{ProviderId: "gitlab-0", UnitTag: "unit-gitlab-0"},
+			},
+		},
+	})
+	s.st.app.CheckCallNames(c, "Life", "SetOperatorStatus", "AllUnits", "UpdateUnits", "Name")
+	now := s.clock.Now()
+	s.st.app.CheckCall(c, 1, "SetOperatorStatus",
+		status.StatusInfo{Status: status.Active, Message: "working", Since: &now})
+	s.st.app.units[0].CheckCallNames(c, "UpdateOperation")
+	s.st.app.units[0].CheckCall(c, 0, "UpdateOperation", state.UnitUpdateProperties{
+		ProviderId: strPtr("gitlab-0"),
+		Address:    strPtr("address"), Ports: &[]string{"port"},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "message"},
+		AgentStatus:          &status.StatusInfo{Status: status.Idle},
+	})
+
+	s.storage.CheckCallNames(c,
+		"UnitStorageAttachments", "StorageInstance", "AllFilesystems", "Volume",
+		"SetVolumeInfo", "SetVolumeAttachmentInfo", "Volume", "SetStatus", "Filesystem",
+		"SetFilesystemInfo", "SetFilesystemAttachmentInfo", "Filesystem", "SetStatus",
+	)
+	s.storage.CheckCall(c, 0, "UnitStorageAttachments", names.NewUnitTag("gitlab/0"))
+	s.storage.CheckCall(c, 1, "StorageInstance", names.NewStorageTag("data/0"))
+	s.storage.CheckCall(c, 4, "SetVolumeInfo",
+		names.NewVolumeTag("0"),
+		state.VolumeInfo{
+			Size:       100,
+			VolumeId:   "pvc-xxx",
+			Persistent: true,
+		})
+	s.storage.CheckCall(c, 5, "SetVolumeAttachmentInfo",
+		names.NewUnitTag("gitlab/0"), names.NewVolumeTag("0"),
+		state.VolumeAttachmentInfo{
+			ReadOnly: false,
+		})
+	s.storage.CheckCall(c, 7, "SetStatus",
+		status.StatusInfo{
+			Status:  status.Attached,
+			Message: "",
+			Since:   &now,
+		})
+	s.storage.CheckCall(c, 9, "SetFilesystemInfo",
+		names.NewFilesystemTag("gitlab/0/0"),
+		state.FilesystemInfo{
+			Size:         100,
+			FilesystemId: "fs-id",
+			Pool:         "kubernetes",
+		})
+	s.storage.CheckCall(c, 10, "SetFilesystemAttachmentInfo",
+		names.NewUnitTag("gitlab/0"), names.NewFilesystemTag("gitlab/0/0"),
+		state.FilesystemAttachmentInfo{
+			MountPoint: "/path/to/here",
+			ReadOnly:   false,
+		})
+	s.storage.CheckCall(c, 12, "SetStatus",
+		status.StatusInfo{
+			Status:  status.Attached,
+			Message: "",
+			Since:   &now,
+		})
+	s.st.model.CheckCallNames(c, "Containers")
+	s.st.model.CheckCall(c, 0, "Containers", []string{"gitlab-0"})
+}
+
 func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 	s.st.app = &mockApplication{
 		tag:  names.NewApplicationTag("gitlab"),
@@ -351,6 +542,16 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 	s.storage.storageAttachments[names.NewUnitTag("gitlab/0")] = names.NewStorageTag("data/0")
 	s.storage.storageAttachments[names.NewUnitTag("gitlab/1")] = names.NewStorageTag("data/1")
 	s.storage.storageAttachments[names.NewUnitTag("gitlab/2")] = names.NewStorageTag("data/2")
+	s.storage.filesystems[names.NewFilesystemTag("gitlab/0/0")] = &mockFilesystem{
+		tag: names.NewFilesystemTag("gitlab/0/0"), volTag: s.storage.backingVolume,
+		infoErr: errors.NotProvisionedf("filesystem"),
+		info:    state.FilesystemInfo{Size: 100, Pool: "", FilesystemId: ""},
+	}
+	s.storage.filesystems[names.NewFilesystemTag("gitlab/1/0")] = &mockFilesystem{
+		tag: names.NewFilesystemTag("gitlab/1/0"), volTag: s.storage.backingVolume,
+		infoErr: errors.NotProvisionedf("filesystem"),
+		info:    state.FilesystemInfo{Size: 200, Pool: "", FilesystemId: ""},
+	}
 
 	units := []params.ApplicationUnitParams{
 		{ProviderId: "gitlab-0", Address: "address", Ports: []string{"port"},

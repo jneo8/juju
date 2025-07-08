@@ -307,6 +307,11 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		return nil, errors.Trace(err)
 	}
 
+	filesystemUnitAttachmentParams, err := a.applicationFilesystemUnitAttachmentParams(app)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	devices, err := a.devicesParams(app)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -359,19 +364,20 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
 	return &params.CAASApplicationProvisioningInfo{
-		Version:              vers,
-		APIAddresses:         addrs,
-		CACert:               caCert,
-		Tags:                 resourceTags,
-		Filesystems:          filesystemParams,
-		Devices:              devices,
-		Constraints:          mergedCons,
-		Base:                 params.Base{Name: base.OS, Channel: base.Channel},
-		ImageRepo:            params.NewDockerImageInfo(imageRepoDetails, imagePath),
-		CharmModifiedVersion: app.CharmModifiedVersion(),
-		CharmURL:             *charmURL,
-		Trust:                appConfig.GetBool(application.TrustConfigOptionName, false),
-		Scale:                app.GetScale(),
+		Version:                   vers,
+		APIAddresses:              addrs,
+		CACert:                    caCert,
+		Tags:                      resourceTags,
+		Filesystems:               filesystemParams,
+		FilesystemUnitAttachments: filesystemUnitAttachmentParams,
+		Devices:                   devices,
+		Constraints:               mergedCons,
+		Base:                      params.Base{Name: base.OS, Channel: base.Channel},
+		ImageRepo:                 params.NewDockerImageInfo(imageRepoDetails, imagePath),
+		CharmModifiedVersion:      app.CharmModifiedVersion(),
+		CharmURL:                  *charmURL,
+		Trust:                     appConfig.GetBool(application.TrustConfigOptionName, false),
+		Scale:                     app.GetScale(),
 	}, nil
 }
 
@@ -533,6 +539,34 @@ func poolStorageProvider(poolManager poolmanager.PoolManager, registry storage.P
 	}
 	providerType := pool.Provider()
 	return providerType, pool.Attrs(), nil
+}
+
+func (a *API) applicationFilesystemUnitAttachmentParams(app Application) (
+	map[string][]params.KubernetesFilesystemUnitAttachmentParams, error,
+) {
+	unitAttachmentInfos, err := app.GetUnitAttachmentInfos()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(unitAttachmentInfos) == 0 {
+		return nil, nil
+	}
+
+	filesystemUnitAttachments := make(map[string][]params.KubernetesFilesystemUnitAttachmentParams, len(unitAttachmentInfos))
+	for _, info := range unitAttachmentInfos {
+		storageName, err := names.StorageName(info.StorageId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		filesystemUnitAttachments[storageName] = append(
+			filesystemUnitAttachments[storageName],
+			params.KubernetesFilesystemUnitAttachmentParams{
+				UnitTag:  names.NewUnitTag(info.Unit).String(),
+				VolumeId: info.VolumeId,
+			},
+		)
+	}
+	return filesystemUnitAttachments, nil
 }
 
 func (a *API) applicationFilesystemParams(
@@ -1118,16 +1152,22 @@ func (a *API) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, 
 		}
 		// If we have already recorded the provisioning info,
 		// it's an error to try and do it again.
-		_, err = fs.Info()
+		oldInfo, err := fs.Info()
 		if err != nil && !errors.IsNotProvisioned(err) {
 			return errors.Trace(err)
 		}
-		if err != nil {
-			// Provisioning info not set yet.
-			err = a.storage.SetFilesystemInfo(fsTag, state.FilesystemInfo{
+
+		if err != nil || oldInfo.FilesystemId == tagString {
+			info := state.FilesystemInfo{
 				Size:         fsData.size,
 				FilesystemId: fsData.filesystemId,
-			})
+			}
+			if info.Pool == "" {
+				info.Pool = oldInfo.Pool
+			}
+
+			// Provisioning info not set yet.
+			err = a.storage.SetFilesystemInfo(fsTag, info)
 			if err != nil {
 				return errors.Trace(err)
 			}
