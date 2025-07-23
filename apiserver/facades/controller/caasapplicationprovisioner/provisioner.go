@@ -381,6 +381,45 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	}, nil
 }
 
+// FilesystemProvisioningInfo returns the filesystem info needed to provision a caas application.
+func (a *API) FilesystemProvisioningInfo(args params.Entity) (params.CAASApplicationProvisioningInfoResult, error) {
+	var result params.CAASApplicationProvisioningInfoResult
+	appTag, err := names.ParseApplicationTag(args.Tag)
+	app, err := a.state.Application(appTag.Id())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	cfg, err := a.ctrlSt.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	model, err := a.state.Model()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	modelConfig, err := model.ModelConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	filesystemParams, err := a.applicationFilesystemParams(app, cfg, modelConfig)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	filesystemUnitAttachmentParams, err := a.applicationFilesystemUnitAttachmentParams(app)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	result.Result = &params.CAASApplicationFilesystemProvisioningInfo{
+		Filesystems:               filesystemParams,
+		FilesystemUnitAttachments: filesystemUnitAttachmentParams,
+	}
+	return result, nil
+}
+
 // SetOperatorStatus sets the status of each given entity.
 func (a *API) SetOperatorStatus(args params.SetStatus) (params.ErrorResults, error) {
 	results := params.ErrorResults{

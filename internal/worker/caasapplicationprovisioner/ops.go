@@ -695,6 +695,10 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 		ps = &params.CAASApplicationProvisioningState{}
 	}
 
+	info, err := facade.FilesystemProvisioningInfo(appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	logger.Debugf("updating application %q scale to %d", appName, desiredScale)
 	if !ps.Scaling || appLife != life.Alive {
 		err := updateProvisioningState(appName, true, desiredScale, facade)
@@ -709,8 +713,21 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	if err != nil {
 		return err
 	}
+
 	if ps.ScaleTarget >= len(units) {
 		logger.Infof("scaling application %q to desired scale %d", appName, ps.ScaleTarget)
+		PVCClearnupFunc, err := app.EnsurePVC(info.Filesystems, info.FilesystemUnitAttachments)
+		if err != nil {
+			return err
+		}
+		// Roll back applyed PVC if error scaling below.
+		defer func() error {
+			if err != nil && PVCClearnupFunc != nil {
+				return PVCClearnupFunc()
+			}
+			return nil
+		}()
+
 		err = app.Scale(ps.ScaleTarget)
 		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
 			logger.Infof("dying application %q is already removed", appName)
@@ -740,7 +757,6 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 		logger.Debugf("application %q currently scaling to %d but desired scale is %d", appName, ps.ScaleTarget, desiredScale)
 		return tryAgain
 	}
-
 	return nil
 }
 
