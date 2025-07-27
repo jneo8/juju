@@ -620,3 +620,33 @@ func (cloudToCommandAdapter) PersonalCloudMetadata() (map[string]cloudfile.Cloud
 func (cloudToCommandAdapter) WritePersonalCloudMetadata(cloudsMap map[string]cloudfile.Cloud) error {
 	return cloudfile.WritePersonalCloudMetadata(cloudsMap)
 }
+
+// NewCommandByName creates a new command instance by name.
+func NewCommandByName(name string) (cmd.Command, error) {
+	switch name {
+	case "version":
+		return newVersionCommand(), nil
+	case "bootstrap":
+		return newBootstrapCommand(), nil
+	case "switch":
+		return newSwitchCommand(), nil
+	case "migrate":
+		return newMigrateCommand(), nil
+	case "sync-agent-binary":
+		return newSyncAgentBinaryCommand(), nil
+	case "upgrade-model":
+		return newUpgradeModelCommand(), nil
+	case "upgrade-controller":
+		return newUpgradeControllerCommand(), nil
+	case "help-hooks":
+		return newhelpHookCmdsCommand(), nil
+	case "help-actions":
+		return newHelpActionCmdsCommand(), nil
+	case "debug-log":
+		return newDebugLogCommand(nil), nil
+	case "enable-ha":
+		return newEnableHACommand(), nil
+	default:
+		return nil, errors.Errorf("unknown command: %s", name)
+	}
+}
